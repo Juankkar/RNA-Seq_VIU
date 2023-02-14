@@ -15,7 +15,7 @@ actividad1/data/reference_genome/*
 !actividad1/data/reference_genome/README.txt
 # fastqc_results
 actividad1/results/fastqc_results/*
-!actividad1/results/fasdtqc_results/README.txt
+!actividad1/results/fastqc_results/README.txt
 # mapeado
 actividad1/results/mapeado/*
 !actividad1/results/mapeado/README.txt 
