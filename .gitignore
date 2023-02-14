@@ -1,3 +1,24 @@
+## Directorios a ignorar
+# raw data
+actividad1/data/raw/*
+!actividad1/data/raw/README.txt
+# processed data
+actividad1/data/processed/ejercicio1/*
+!actividad1/data/processed/ejercicio1/README.txt
+actividad1/data/processed/ejercicio2_trimmed/*
+!actividad1/data/processed/ejercicio2_trimmed/README.txt
+# annotation
+actividad1/data/annotation/*
+!actividad1/data/annotation/README.txt
+# genome reference
+actividad1/data/reference_genome/*
+!actividad1/data/reference_genome/README.txt
+# fastqc_results
+actividad1/results/fastqc_results/*
+!actividad1/results/fasdtqc_results/README.txt
+# mapeado
+actividad1/results/mapeado/*
+!actividad1/results/mapeado/README.txt 
 # History files
 .Rhistory
 .Rapp.history
