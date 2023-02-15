@@ -5,7 +5,7 @@ echo "EJERCICIO2: PROFUNDIDAD, LONGITUD SECUENCIAS"
 echo "############################################"
 echo ""
 
-num_linea=$(echo $(awk {'print NR'} ../data/raw/SRR13795616.fastq.gz | tail -1))
+num_linea=$(echo $(zcat ../data/raw/SRR13795616.fastq.gz | awk {'print NR'} | tail -1))
 
 if [ ! -f ../data/processed/ejercicio2/len_seqs.txt ]
 then
