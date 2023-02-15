@@ -1,5 +1,11 @@
 #!/usr/bin/env bash
 
+echo ""
+echo "#####################"
+echo "PROCESADO TRIM GALORE"
+echo "#####################"
+echo ""
+
 ## Realizamos el procesado de los datos crudos
 trim_galore ../data/raw/SRR13795616.fastq.gz -o ../data/processed/ejercicio2_trimmed
 

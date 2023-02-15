@@ -3,8 +3,8 @@
 actividad1/data/raw/*
 !actividad1/data/raw/README.txt
 # processed data
-actividad1/data/processed/ejercicio1/*
-!actividad1/data/processed/ejercicio1/README.txt
+actividad1/data/processed/ejercicio2/*
+!actividad1/data/processed/ejercicio2/README.txt
 actividad1/data/processed/ejercicio2_trimmed/*
 !actividad1/data/processed/ejercicio2_trimmed/README.txt
 # annotation
@@ -19,6 +19,10 @@ actividad1/results/fastqc_results/*
 # mapeado
 actividad1/results/mapeado/*
 !actividad1/results/mapeado/README.txt 
+# tables
+actividad1/results/tables/*
+!actividad1/results/tables/README.txt
+
 # History files
 .Rhistory
 .Rapp.history
@@ -58,3 +62,4 @@ vignettes/*.pdf
 
 # R Environment Variables
 .Renviron
+
