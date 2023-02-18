@@ -6,14 +6,32 @@ library(ggtext)
 library(venn)
 library(pheatmap)
 library(matrixStats)
-
-metadata <- read.delim("../../data/experimento_GSE167749.tsv", row.names = 1)
-metadata
+library(ggrepel)
 
 #######################
 ## Pregunta número 1 ##
 #######################
-heatmap(table(metadata$disease_state, metadata$GEO))
+## Cargamos los metadatos ##
+metadata <- read.delim("../../data/experimento_GSE167749.tsv", row.names = 1)
+metadata
+tabla <- data.frame(table(metadata$GEO, metadata$disease_state))
+tabla %>% 
+  mutate(Var2=factor(Var2,
+                     levels=c("healthy", "infected", "infected+treated"),
+                     labels=c("Sanos", "Infectados", "Infectados tratados")),
+         Var1 = factor(Var1,
+                       levels=unique(tabla$Var1),
+                       labels=rownames(metadata))) %>% 
+  ggplot(aes(Var2,Var1, fill=Freq)) +
+  geom_tile() +
+  labs(
+    title = "Muestras frente a los grupos",
+    y = "Muestras",
+    x = "Grupos de tratameinto"
+  ) +
+  scale_fill_gradient(low = "white", high = "red") +
+  theme(panel.background = element_blank(),
+        plot.title = element_text(hjust = .5, face="bold"))
 
 grupos <- factor(metadata$disease_state)
 table(grupos)
@@ -41,11 +59,6 @@ infected_counts %>%
   labs(
     title = "Relación de la media frente la varianza por gen",
     subtitle = "Muestra: Ratones infectados no tratados",
-    caption = "Lo que vemos es que cuando comparamos el valor 
-    medio frente la varianza la relación no so iguales, esto se debe
-    a que muchos genes se encuentran expresándose más que otros, sobre 
-    todo, a valores promedio más altos de expresión más altos, existie
-    más variacón den los datos.",
     y = "Recuento varianzas",
     x = "Recuenteo medias"
   ) +
@@ -151,15 +164,16 @@ boxplot2 <- df_cpm %>%
   ggplot(aes(muestras, valores,fill=grupo)) +
   geom_boxplot(show.legend = FALSE) +
   geom_hline(yintercept = median(df_cpm$valores), color="red") +
-  labs(title = "Tamaños librerías (logCPMs)",
+  labs(title = "Tamaños librerías (Normalizado)",
        x="muestras",
-       y="Log2 CPM") +
+       y="Log~2~ CPM") +
   scale_fill_manual(values = c("white", "gray", "orange")) +
   theme_classic() +
   theme(
     plot.title = element_text(hjust = .5, face = "bold", size = 14),
     plot.subtitle = element_text(hjust = .5, face = "italic", size = 12),
     axis.title = element_text(face = "bold", size = 12),
+    axis.title.y = element_markdown(),
     axis.text = element_text(color = "black")
   )
 
@@ -176,12 +190,9 @@ plotMDS(y, col = as.numeric(y$samples$group),
 # mediante la función estimateDisp y observa cómo la tagwise dispersion y 
 # la trended dipersion
 y <- estimateDisp(y, diseño, robust=TRUE)
-y$common.dispersion
-head(y$trended.dispersion)
-head(y$tagwise.dispersion)
-head(y$AveLogCPM)
 
-# Representa en un gráfico de la variabilidad biológica que existe en el conjunto de datos con la función plotBCV.
+# Representa en un gráfico de la variabilidad biológica que existe en el 
+# conjunto de datos con la función plotBCV.
 df_dispersiones <- tibble(genes=row.names(y$counts), 
        tawise_dispersion = y$tagwise.dispersion, 
        trended_dispersion = y$trended.dispersion) 
@@ -209,7 +220,7 @@ ITvsI  <- glmQLFTest(fit, contrast = IT_I_contrast)
 
 IvsH_DGE <- topTags(IvsH, n=Inf)
 ITvsI_DGE <- topTags(ITvsI, n=Inf)
-
+## Primer apartado ##
 ## Combinamos ambas comparaciones en un unico df tidy
 nrow_IvsH_DGE_table <- nrow(IvsH_DGE$table)
 IvsH_DGE_table <- IvsH_DGE$table %>% 
@@ -223,25 +234,26 @@ comparaciones_tidy <- rbind(IvsH_DGE_table, ITvsI_DGE_table)
 
 hist_DGE_pvalue <- comparaciones_tidy %>%
   as_tibble() %>%
-  ggplot(aes(PValue, fill = grupos)) +
+  ggplot(aes(PValue)) +
   geom_histogram(color="black", show.legend = FALSE) +
+  scale_y_continuous(limits = c(0,15000)) +
   geom_vline(xintercept = 0.05, color="red", linetype="dashed") +
-  facet_grid(~grupos) +
-  labs(title = "Histogramas de los p-Values",
+  labs(title = "Histograma de los p-Values",
        y = "Recuentos",
        x = "p-Value")
 
 hist_DGE_fdr <- comparaciones_tidy %>%
   as_tibble() %>%
-  ggplot(aes(FDR, fill = grupos)) +
+  ggplot(aes(FDR)) +
   geom_histogram(color="black", show.legend = FALSE) +
   geom_vline(xintercept = 0.05, color="red", linetype="dashed") +
-  facet_grid(~grupos) +
-  labs(title = "Histogramas de los FDR",
+  scale_y_continuous(limits = c(0,15000)) +
+  labs(title = "Histograma de los FDR",
        y = "Recuentos",
        x = "FDR")
 plot_grid(hist_DGE_pvalue, hist_DGE_fdr, ncol = 1)
 
+## Segundo apartado ##
 comparaciones_tidy %>%
   filter(grupos == "Infectados vs Sanos" & FDR >= 0.05 ) %>%
   nrow()
@@ -378,16 +390,130 @@ venn(list("IvsH_up"=IvsH_DGE_up, "IvsH_down"=IvsH_DGE_down,
 IvsH_DGE_filt <- IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & abs(IvsH_DGE$table$logFC)>=1,]
 ITvsI_DGE_filt <- ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & abs(ITvsI_DGE$table$logFC)>=1,]
 all_DGE_filt <- intersect(row.names(IvsH_DGE_filt),row.names(ITvsI_DGE_filt))
-
+# Extracción de datos normalizados
 cpms <- cpm(y$counts, log =TRUE)
 colnames(cpms) <- rownames(metadata)
-
+head(cpms)
+# Hacemos un subset con los genes de interes
 matrix_DGE_cpm <- cpms[all_DGE_filt,]
 head(rowSds(matrix_DGE_cpm))
-
-## Escalamos
-# creamos nuestra propia función
+# Transformar la matriz de datos a Z-Score (función scale)
 zscore_fun <- function(x){(x-mean(x))/sd(x)}
 # Y escalamos
 matrix_DGE_zscore <- t(apply(matrix_DGE_cpm,1,zscore_fun))
 head(rowSds(matrix_DGE_zscore))
+
+matrix_DGE_cpm_long <- matrix_DGE_cpm %>%
+  as.data.frame() %>%
+  mutate(matriz = rep("CPMs", nrow(matrix_DGE_cpm))) %>% 
+  pivot_longer(-matriz, names_to = "muestras", values_to = "valores")
+
+matrix_DGE_zscore_long <- matrix_DGE_zscore %>%
+  as.data.frame() %>%
+  mutate(matriz = rep("Zscore", nrow(matrix_DGE_cpm))) %>% 
+  pivot_longer(-matriz, names_to = "muestras", values_to = "valores")
+
+rbind(matrix_DGE_cpm_long, matrix_DGE_zscore_long) %>%
+  ggplot(aes(valores, fill=matriz)) +
+  geom_density(color="black", show.legend = FALSE) +
+  geom_vline(xintercept = c(-1,1)) +
+  facet_grid(~matriz)
+
+# Calcular las distancias entre cada gen
+gene_dist <- dist(matrix_DGE_zscore,method = "manhattan")
+# Perform hierarchical clustering using hclust()
+gene_hclust <- hclust(gene_dist, method = "complete")
+
+pheatmap(
+  matrix_DGE_cpm,
+  cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
+  cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
+  show_rownames = FALSE, # There are too many genes to clearly show the labels,
+  # clustering_distance_rows = "manhattan",
+  # clustering_distance_cols = "manhattan",
+  main = "Heatmap intersection DEG (Euclidean distances)",
+  colorRampPalette(c(
+    "skyblue",
+             "white",
+             "red"
+  ))(25
+  ),
+  scale = "row") # Scale values in the direction of genes (rows)
+
+pheatmap(
+  matrix_DGE_cpm,
+  cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
+  cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
+  show_rownames = FALSE, # There are too many genes to clearly show the labels,
+  clustering_distance_rows = "manhattan",
+  clustering_distance_cols = "manhattan",
+  main = "Heatmap intersection DEG (Manhattan distances)",
+  colorRampPalette(c(
+    "skyblue",
+             "white",
+             "red"
+  ))(25
+  ),
+  scale = "row") # Scale values in the direction of genes (rows)
+
+## Último apartado, filtramos el coronavirus
+madtrix_betacoronavirus <- matrix_DGE_cpm %>%
+  as.data.frame() %>%
+  mutate(gene_id=rownames(matrix_DGE_cpm)) %>% 
+  filter(str_detect(gene_id, "^\\d")) %>%
+  select(-gene_id) %>% 
+  as.matrix()
+
+
+pheatmap(
+  madtrix_betacoronavirus,
+  cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
+  cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
+  show_rownames = FALSE, # There are too many genes to clearly show the labels,
+  clustering_distance_rows = "manhattan",
+  clustering_distance_cols = "manhattan",
+  main = "Heatmap intersection DEG (Manhattan distances)",
+  method="complete",
+  colorRampPalette(c(
+    "skyblue",
+             "white",
+             "red"
+  ))(25
+  ),
+  scale = "row")
+
+#######################
+## Pregunta número 7 ##
+#######################
+library(GO.db) ## OJO, enmascara funciones de dplyr, no bueno asi que lo dejo por aqui
+require(org.Mm.eg.db)
+
+library(limma)
+base <- as.data.frame(org.Mm.egENSEMBL2EG)
+IvsH_DGE_up <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC>=1,])
+IvsH_DGE_down <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC<=-1,])
+ITvsI_DGE_up <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC>=1,])
+ITvsI_DGE_down <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC<=-1,])
+
+funer <- base[base$ensembl_id %in% IvsH_DGE_up, ]
+go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID") # Busqueda de go y estudio de su frecuencia
+topGO(go, ontology="BP", number = 3)
+funer <- base[base$ensembl_id %in% IvsH_DGE_down, ]
+go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID")
+topGO(go, ontology="MF", number = 3)
+funer <- base[base$ensembl_id %in% ITvsI_DGE_up, ]
+go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID")
+topGO(go, ontology="BP", number = 3)
+funer <- base[base$ensembl_id %in% ITvsI_DGE_down, ]
+go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID")
+topGO(go, ontology="BP", number = 3)
+
+## Segundo apartado ##
+## Uso de DOSE
+library(clusterProfiler)
+funer <- base[base$ensembl_id %in% IvsH_DGE_up, ]
+kegg <- enrichKEGG(gene = funer$gene_id,
+                       organism = "mmu",
+                       pvalueCutoff = .05,
+                       qvalueCutoff = .05)
+barplot(kegg)
