@@ -77,10 +77,8 @@ infected_counts %>%
 recuentos %>% nrow() 
 # Un total de 55421 gene de ratón y 10 genes de beta coronavirus
 recuentos %>%
-  as_tibble() %>%
-  mutate(genes = rownames(recuentos)) %>%
-  select(genes) %>%
-  mutate(especie=case_when(grepl("ENSMUS", genes)~"Ratón",
+  mutate(genes = rownames(recuentos),
+         especie=case_when(grepl("ENSMUS", genes)~"Ratón",
                            !(grepl(("ENSMUS"), genes))~"Betacoronavirus")) %>%
   group_by(especie) %>%
   summarise(n=n())
@@ -131,28 +129,30 @@ y$samples %>%
   filter(norm.factors < 1)
 
 ## Segundo apartado
-no_normalizado <- y$counts %>%
+no_normalizado <- cpm(y,normalized.lib.sizes = T, log=TRUE) %>%
   as.data.frame() %>% 
   mutate(genes = row.names(y$counts)) %>% 
   pivot_longer(-genes, names_to = "muestras", values_to = "valores") %>% # pasamos a formato tidy
   mutate(grupo=str_remove(pattern = "[:digit:]",muestras))
 
 boxplot1 <- no_normalizado %>% 
-  ggplot(aes(muestras, valores/10000,fill=grupo)) +
+  ggplot(aes(muestras, valores,fill=grupo)) +
   geom_boxplot(show.legend = FALSE) +
-  geom_hline(yintercept = median(no_normalizado$valores)/10^4, color="red") +
-  labs(title = "Tamaños librerías (Sin normalizar)",
+  geom_hline(yintercept = median(no_normalizado$valores), color="red") +
+  labs(title = "Tamaños librerías (Sin normalizado)",
        x="muestras",
-       y="CPM x 10⁴") +
+       y="Log~2~ CPM") +
   scale_fill_manual(values = c("white", "gray", "orange")) +
   theme_classic() +
   theme(
     plot.title = element_text(hjust = .5, face = "bold", size = 14),
     plot.subtitle = element_text(hjust = .5, face = "italic", size = 12),
     axis.title = element_text(face = "bold", size = 12),
+    axis.title.y = element_markdown(),
     axis.text = element_text(color = "black")
   )
 
+length(cpm(y,normalized.lib.sizes = T, log=TRUE))
 cpm <- cpm(y,normalized.lib.sizes = T, log=TRUE) 
 df_cpm <- cpm %>%
   as.data.frame() %>% 
@@ -193,13 +193,12 @@ y <- estimateDisp(y, diseño, robust=TRUE)
 
 # Representa en un gráfico de la variabilidad biológica que existe en el 
 # conjunto de datos con la función plotBCV.
-df_dispersiones <- tibble(genes=row.names(y$counts), 
+tibble(genes=row.names(y$counts), 
        tawise_dispersion = y$tagwise.dispersion, 
-       trended_dispersion = y$trended.dispersion) 
-
-df_dispersiones %>% filter(genes %in% c("ENSMUSG00000078354", 
-                                        "ENSMUSG00000049176",
-                                        "55060280"))
+       trended_dispersion = y$trended.dispersion) %>% 
+  filter(genes %in% c("ENSMUSG00000078354", 
+                      "ENSMUSG00000049176",
+                      "55060280"))
 ## Segundo apartado
 fit <- glmQLFit(y, diseño, robust = TRUE)
 fit$coefficients %>% 
@@ -208,6 +207,7 @@ fit$coefficients %>%
   filter(genes %in% c("ENSMUSG00000078354", 
                       "ENSMUSG00000049176",
                       "55060280"))
+
 #######################
 ## Pregunta número 5 ##
 #######################
@@ -221,54 +221,21 @@ ITvsI  <- glmQLFTest(fit, contrast = IT_I_contrast)
 IvsH_DGE <- topTags(IvsH, n=Inf)
 ITvsI_DGE <- topTags(ITvsI, n=Inf)
 ## Primer apartado ##
-## Combinamos ambas comparaciones en un unico df tidy
-nrow_IvsH_DGE_table <- nrow(IvsH_DGE$table)
-IvsH_DGE_table <- IvsH_DGE$table %>% 
-  mutate(grupos=rep("Infectados vs Sanos"), nrow(nrow_IvsH_DGE_table))
-
-nrow_ITvsI_DGE_table <- nrow(ITvsI_DGE$table)
-ITvsI_DGE_table <- ITvsI_DGE$table %>% 
-  mutate(grupos=rep("Infectados tratados vs Infectados"), nrow(nrow_IvsH_DGE_table))
-
-comparaciones_tidy <- rbind(IvsH_DGE_table, ITvsI_DGE_table) 
-
-hist_DGE_pvalue <- comparaciones_tidy %>%
-  as_tibble() %>%
-  ggplot(aes(PValue)) +
-  geom_histogram(color="black", show.legend = FALSE) +
-  scale_y_continuous(limits = c(0,15000)) +
-  geom_vline(xintercept = 0.05, color="red", linetype="dashed") +
-  labs(title = "Histograma de los p-Values",
-       y = "Recuentos",
-       x = "p-Value")
-
-hist_DGE_fdr <- comparaciones_tidy %>%
-  as_tibble() %>%
-  ggplot(aes(FDR)) +
-  geom_histogram(color="black", show.legend = FALSE) +
-  geom_vline(xintercept = 0.05, color="red", linetype="dashed") +
-  scale_y_continuous(limits = c(0,15000)) +
-  labs(title = "Histograma de los FDR",
-       y = "Recuentos",
-       x = "FDR")
-plot_grid(hist_DGE_pvalue, hist_DGE_fdr, ncol = 1)
+hist(IvsH_DGE$table$PValue, 
+     main = "p-Values, Infectados vs Enfermos", xlab = "p-Value")
+hist(ITvsI_DGE$table$PValue, 
+     main = "FDR, Infectados vs Enfermos", xlab = "FDR")
+hist(IvsH_DGE$table$FDR, 
+     main = "p-Values, Enfermos tratados vs Enfermos", xlab = "p-Value")
+hist(ITvsI_DGE$table$FDR, 
+     main = "FDR, Enfermos tratados vs Enfermos", xlab = "FDR")
 
 ## Segundo apartado ##
-comparaciones_tidy %>%
-  filter(grupos == "Infectados vs Sanos" & FDR >= 0.05 ) %>%
-  nrow()
+IvsH_DGE$table %>% filter(FDR <= 0.05) %>% nrow()
+IvsH_DGE$table %>% filter(FDR <= 0.01) %>% nrow()
 
-comparaciones_tidy %>% 
-  filter(grupos == "Infectados vs Sanos" & FDR <= 0.01 ) %>% 
-  nrow()
-
-comparaciones_tidy %>% 
-  filter(grupos == "Infectados tratados vs Infectados" & FDR <= 0.05 ) %>% 
-  nrow()
-
-comparaciones_tidy %>% 
-  filter(grupos == "Infectados tratados vs Infectados" & FDR <= 0.01) %>% 
-  nrow()
+ITvsI_DGE$table %>% filter(FDR <= 0.05) %>% nrow()
+ITvsI_DGE$table %>% filter(FDR <= 0.01) %>% nrow()
 
 # Forma 2: Seleccionamons los genes con un FDR menor o igual de 0.05.
 is.deIH <- decideTestsDGE(IvsH)
@@ -280,21 +247,24 @@ plotMD(ITvsI, status=is.deITI, cex = 0.5, legend = "bottomright")
 abline( h = c( -1, 1 ), col = "black")
 
 ## Tercer apartado
-IvsH_DGE$table %>% 
+IvsH_DGE_volcano <- IvsH_DGE$table %>% 
   mutate(genes_id=rownames(IvsH_DGE$table),
          expresion=case_when(FDR <= 0.05 & logFC >=1 ~ "UP",
                              FDR <= 0.05 & logFC <=-1 ~ "DOWN",
                              !((FDR <= 0.05 & logFC >=1)) & 
-                               !((FDR <= 0.05 & logFC <=-1)) ~ "NS")) %>% 
+                               !((FDR <= 0.05 & logFC <=-1)) ~ "NS"))
+IvsH_DGE_volcano %>% 
   group_by(expresion) %>% 
   summarise(n=n())
 
-ITvsI_DGE$table %>% 
-  mutate(genes_id=rownames(IvsH_DGE$table),
+ITvsI_DGE_volcano <- ITvsI_DGE$table %>% 
+  mutate(
+    genes_id=rownames(ITvsI_DGE$table),
          expresion=case_when(FDR <= 0.05 & logFC >=1 ~ "UP",
-                             FDR <= 0.05 & logFC <=-1 ~ "DOWN",
-                             !((FDR <= 0.05 & logFC >=1)) & 
-                               !((FDR <= 0.05 & logFC <=-1)) ~ "NS")) %>% 
+                              FDR <= 0.05 & logFC <=-1 ~ "DOWN",
+                              !((FDR <= 0.05 & logFC >=1)) & 
+                                !((FDR <= 0.05 & logFC <=-1)) ~ "NS"))
+ITvsI_DGE_volcano %>% 
   group_by(expresion) %>%
   summarise(n=n())
  
@@ -304,13 +274,8 @@ top_3_genes_IvsH <- IvsH_DGE$table %>%
   arrange(PValue) %>% 
   head(n=3)
 
-volcano1 <- IvsH_DGE$table %>% 
-  mutate(genes_id=rownames(IvsH_DGE$table),
-         expresion=case_when(FDR <= 0.05 & logFC >=1 ~ "UP",
-                             FDR <= 0.05 & logFC <=-1 ~ "DOWN",
-                             !((FDR <= 0.05 & logFC >=1)) & 
-                                 !((FDR <= 0.05 & logFC <=-1)) ~ "NS"),
-         expresion=factor(expresion,
+volcano1 <- IvsH_DGE_volcano %>% 
+  mutate(expresion=factor(expresion,
                           levels=c("NS", "DOWN", "UP")),
          top_genes_labels = ifelse(genes_id %in% rownames(top_3_genes_IvsH),
                                    genes_id, NA)) %>% 
@@ -320,7 +285,8 @@ volcano1 <- IvsH_DGE$table %>%
     title = "Volcano plot, DGE Ratones",
     subtitle = "Infectados vs sanos",
     x = "Log~2~ Fold Change",
-    y = "-Log~10~ *P*"
+    y = "-Log~10~ *P*",
+    color="Expresión"
   ) +
   scale_color_manual(values = c("gray", "blue", "forestgreen")) +
   geom_vline(xintercept = c(1,-1), color="red", linetype="dashed") +
@@ -340,13 +306,8 @@ top_3_genes_ITvsI <- ITvsI_DGE$table %>%
   arrange(PValue) %>% 
   head(n=3)
 
-volcano2 <- ITvsI_DGE$table %>% 
-  mutate(genes_id=rownames(ITvsI_DGE$table),
-         expresion=case_when(FDR <= 0.05 & logFC >=1 ~ "UP",
-                             FDR <= 0.05 & logFC <=-1 ~ "DOWN",
-                             !((FDR <= 0.05 & logFC >=1)) & 
-                               !((FDR <= 0.05 & logFC <=-1)) ~ "NS"),
-         expresion=factor(expresion,
+volcano2 <- ITvsI_DGE_volcano %>% 
+  mutate(expresion=factor(expresion,
                           levels=c("NS", "DOWN", "UP")),
          top_genes_labels = ifelse(genes_id %in% rownames(top_3_genes_ITvsI),
                                    genes_id, NA)) %>% 
@@ -495,18 +456,14 @@ IvsH_DGE_down <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$lo
 ITvsI_DGE_up <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC>=1,])
 ITvsI_DGE_down <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC<=-1,])
 
-funer <- base[base$ensembl_id %in% IvsH_DGE_up, ]
-go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID") # Busqueda de go y estudio de su frecuencia
-topGO(go, ontology="BP", number = 3)
-funer <- base[base$ensembl_id %in% IvsH_DGE_down, ]
-go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID")
-topGO(go, ontology="MF", number = 3)
-funer <- base[base$ensembl_id %in% ITvsI_DGE_up, ]
-go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID")
-topGO(go, ontology="BP", number = 3)
-funer <- base[base$ensembl_id %in% ITvsI_DGE_down, ]
-go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID")
-topGO(go, ontology="BP", number = 3)
+buscar_go <- function(names_regulated){
+  cuerpo = for(i in c("BP", "MF")) {
+    funer <- base[base$ensembl_id %in% names_regulated, ]
+    go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID") # Busqueda de go y estudio de su frecuencia
+    print(topGO(go, ontology=i, number = 3))
+  }
+  return(cuerpo)
+};buscar_go(IvsH_DGE_up); buscar_go(IvsH_DGE_down); buscar_go(ITvsI_DGE_up); buscar_go(ITvsI_DGE_down)
 
 ## Segundo apartado ##
 ## Uso de DOSE
