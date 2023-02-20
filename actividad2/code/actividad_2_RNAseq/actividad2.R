@@ -7,6 +7,7 @@ library(venn)
 library(pheatmap)
 library(matrixStats)
 library(ggrepel)
+library(UpSetR)
 
 #######################
 ## Pregunta número 1 ##
@@ -14,16 +15,14 @@ library(ggrepel)
 ## Cargamos los metadatos ##
 metadata <- read.delim("../../data/experimento_GSE167749.tsv", row.names = 1)
 metadata
+
 tabla <- data.frame(table(metadata$GEO, metadata$disease_state))
 tabla %>% 
   mutate(Var2=factor(Var2,
                      levels=c("healthy", "infected", "infected+treated"),
-                     labels=c("Sanos", "Infectados", "Infectados tratados")),
-         Var1 = factor(Var1,
-                       levels=unique(tabla$Var1),
-                       labels=rownames(metadata))) %>% 
+                     labels=c("Sanos", "Infectados", "Infectados tratados"))) %>% 
   ggplot(aes(Var2,Var1, fill=Freq)) +
-  geom_tile() +
+  geom_tile(show.legend = F) +
   labs(
     title = "Muestras frente a los grupos",
     y = "Muestras",
@@ -40,14 +39,14 @@ diseño <- model.matrix(~0+grupos)
 colnames(diseño) <- c("healthy","infected","infected_treated")
 rownames(diseño) <- rownames(metadata)
 
-recuentos <- read.delim("../../data/recuento_GSE167749.tsv",row.names = 1)
-colnames(recuentos) <- row.names(metadata)
-
 #######################
 ## Pregunta número 2 ##
 #######################
+recuentos <- read.delim("../../data/recuento_GSE167749.tsv",row.names = 1)
+colnames(recuentos) <- row.names(metadata)
+
 ## Representación de los recuentos de la media frente la variaza
-infected_counts <- recuentos %>%
+infected_counts <- recuentos %>% 
   mutate(mean_counts=apply(recuentos[,6:10],1,mean),
          variance_counts=apply(recuentos[,6:10],1,var)) %>%
   select(-starts_with(c("E", "C", "ET")))
@@ -60,7 +59,7 @@ infected_counts %>%
     title = "Relación de la media frente la varianza por gen",
     subtitle = "Muestra: Ratones infectados no tratados",
     y = "Recuento varianzas",
-    x = "Recuenteo medias"
+    x = "Recuento medias"
   ) +
   scale_y_log10(limits = c(1,1e9)) +
   scale_x_log10(limits = c(1,1e9)) +
@@ -115,13 +114,10 @@ plot_grid(hist1,hist2,hist3, nrow = 1)
 #######################
 ## Pregunta número 3 ##
 #######################
-## Primer apartado
-# eliminamos la columna de las sumas que hicimos en un principio
 preDGE <- filtrado2
 # Creamos el objeto DGEList
 y <- DGEList(preDGE,group = grupos)
 y <- calcNormFactors(y,method = "TMM")
-
 
 ## Apartado 1 vemos los norm.factors < 1
 y$samples %>%
@@ -129,7 +125,7 @@ y$samples %>%
   filter(norm.factors < 1)
 
 ## Segundo apartado
-no_normalizado <- cpm(y,normalized.lib.sizes = T, log=TRUE) %>%
+no_normalizado <- cpm(y,normalized.lib.sizes = F, log=TRUE) %>%
   as.data.frame() %>% 
   mutate(genes = row.names(y$counts)) %>% 
   pivot_longer(-genes, names_to = "muestras", values_to = "valores") %>% # pasamos a formato tidy
@@ -152,7 +148,6 @@ boxplot1 <- no_normalizado %>%
     axis.text = element_text(color = "black")
   )
 
-length(cpm(y,normalized.lib.sizes = T, log=TRUE))
 cpm <- cpm(y,normalized.lib.sizes = T, log=TRUE) 
 df_cpm <- cpm %>%
   as.data.frame() %>% 
@@ -191,10 +186,10 @@ plotMDS(y, col = as.numeric(y$samples$group),
 # la trended dipersion
 y <- estimateDisp(y, diseño, robust=TRUE)
 
-# Representa en un gráfico de la variabilidad biológica que existe en el 
-# conjunto de datos con la función plotBCV.
-tibble(genes=row.names(y$counts), 
-       tawise_dispersion = y$tagwise.dispersion, 
+## Creamos un tibble con los vectores que nos interes y filtramos los genes
+## de interés
+tibble(genes=rownames(y$counts), 
+       tagwise_dispersion = y$tagwise.dispersion, 
        trended_dispersion = y$trended.dispersion) %>% 
   filter(genes %in% c("ENSMUSG00000078354", 
                       "ENSMUSG00000049176",
@@ -220,24 +215,31 @@ ITvsI  <- glmQLFTest(fit, contrast = IT_I_contrast)
 
 IvsH_DGE <- topTags(IvsH, n=Inf)
 ITvsI_DGE <- topTags(ITvsI, n=Inf)
+
 ## Primer apartado ##
+par(mfrow=c(2, 2)) ## Nos permitirá juntar los histogramas
+
 hist(IvsH_DGE$table$PValue, 
-     main = "p-Values, Infectados vs Enfermos", xlab = "p-Value")
+     main = "Infectados vs Sanos", xlab = "p-Value")
 hist(ITvsI_DGE$table$PValue, 
-     main = "FDR, Infectados vs Enfermos", xlab = "FDR")
+     main = "Infectados vs Sanos", xlab = "FDR")
 hist(IvsH_DGE$table$FDR, 
-     main = "p-Values, Enfermos tratados vs Enfermos", xlab = "p-Value")
+     main = "Enfermos tratados vs Enfermos", xlab = "p-Value")
 hist(ITvsI_DGE$table$FDR, 
-     main = "FDR, Enfermos tratados vs Enfermos", xlab = "FDR")
+     main = "Enfermos tratados vs Enfermos", xlab = "FDR")
 
 ## Segundo apartado ##
-IvsH_DGE$table %>% filter(FDR <= 0.05) %>% nrow()
-IvsH_DGE$table %>% filter(FDR <= 0.01) %>% nrow()
+tibble(
+Infected_vs_Healthy = IvsH_DGE$table %>% filter(FDR <= 0.05) %>% nrow(),
+InfectesT_vs_Infected = ITvsI_DGE$table %>% filter(FDR <= 0.05) %>% nrow()
+)
 
-ITvsI_DGE$table %>% filter(FDR <= 0.05) %>% nrow()
-ITvsI_DGE$table %>% filter(FDR <= 0.01) %>% nrow()
+tibble(
+  Infected_vs_Healthy = IvsH_DGE$table %>% filter(FDR <= 0.01) %>% nrow(),
+  InfectesT_vs_Infected = ITvsI_DGE$table %>% filter(FDR <= 0.01) %>% nrow()
+) 
 
-# Forma 2: Seleccionamons los genes con un FDR menor o igual de 0.05.
+## Hacemos el plot MDS
 is.deIH <- decideTestsDGE(IvsH)
 plotMD(IvsH, status=is.deIH, cex = 0.5, legend = "bottomright")
 abline( h = c( -1, 1 ), col = "black")
@@ -252,7 +254,7 @@ IvsH_DGE_volcano <- IvsH_DGE$table %>%
          expresion=case_when(FDR <= 0.05 & logFC >=1 ~ "UP",
                              FDR <= 0.05 & logFC <=-1 ~ "DOWN",
                              !((FDR <= 0.05 & logFC >=1)) & 
-                               !((FDR <= 0.05 & logFC <=-1)) ~ "NS"))
+                               !((FDR <= 0.05 & logFC <=-1)) ~ "No UP/DOWN"))
 IvsH_DGE_volcano %>% 
   group_by(expresion) %>% 
   summarise(n=n())
@@ -263,7 +265,7 @@ ITvsI_DGE_volcano <- ITvsI_DGE$table %>%
          expresion=case_when(FDR <= 0.05 & logFC >=1 ~ "UP",
                               FDR <= 0.05 & logFC <=-1 ~ "DOWN",
                               !((FDR <= 0.05 & logFC >=1)) & 
-                                !((FDR <= 0.05 & logFC <=-1)) ~ "NS"))
+                                !((FDR <= 0.05 & logFC <=-1)) ~ "No UP/DOWN"))
 ITvsI_DGE_volcano %>% 
   group_by(expresion) %>%
   summarise(n=n())
@@ -276,7 +278,7 @@ top_3_genes_IvsH <- IvsH_DGE$table %>%
 
 volcano1 <- IvsH_DGE_volcano %>% 
   mutate(expresion=factor(expresion,
-                          levels=c("NS", "DOWN", "UP")),
+                          levels=c("No UP/DOWN", "DOWN", "UP")),
          top_genes_labels = ifelse(genes_id %in% rownames(top_3_genes_IvsH),
                                    genes_id, NA)) %>% 
   ggplot(aes(logFC, -log10(FDR), color=expresion, label=top_genes_labels)) +
@@ -303,12 +305,12 @@ volcano1 <- IvsH_DGE_volcano %>%
 
 ## Infectados tratados vs infectados
 top_3_genes_ITvsI <- ITvsI_DGE$table %>% 
-  arrange(PValue) %>% 
+  arrange(FDR) %>% 
   head(n=3)
 
 volcano2 <- ITvsI_DGE_volcano %>% 
   mutate(expresion=factor(expresion,
-                          levels=c("NS", "DOWN", "UP")),
+                          levels=c("No UP/DOWN", "DOWN", "UP")),
          top_genes_labels = ifelse(genes_id %in% rownames(top_3_genes_ITvsI),
                                    genes_id, NA)) %>% 
   ggplot(aes(logFC, -log10(FDR), color=expresion, label=top_genes_labels)) +
@@ -317,7 +319,8 @@ volcano2 <- ITvsI_DGE_volcano %>%
     title = "Volcano plot, DGE Ratones",
     subtitle = "Infectados tratados vs infectados",
     x = "Log~2~ Fold Change",
-    y = "-Log~10~ *P*"
+    y = "-Log~10~ *P*",
+    color="Expresión"
   ) +
   scale_color_manual(values = c("gray", "blue", "forestgreen")) +
   geom_vline(xintercept = c(1,-1), color="red", linetype="dashed") +
@@ -333,6 +336,7 @@ volcano2 <- ITvsI_DGE_volcano %>%
         axis.title.x = element_markdown())
 
 plot_grid(volcano1, volcano2)
+
 ## Último apartado
 IvsH_DGE_up <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC>=1,])
 IvsH_DGE_down <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC<=-1,])
@@ -340,9 +344,21 @@ IvsH_DGE_down <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$lo
 ITvsI_DGE_up <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC>=1,])
 ITvsI_DGE_down <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC<=-1,])
 
+# Vennplot
 venn(list("IvsH_up"=IvsH_DGE_up, "IvsH_down"=IvsH_DGE_down, 
           "ITvsI_up"=ITvsI_DGE_up, "ITvsI_down"=ITvsI_DGE_down ),
            zcolor = c("#999999", "#E69F00", "#56B4E9", "#009E73"))
+
+
+## UpSet plot
+lista_genes <- list(
+  IvsH_DGE_up = IvsH_DGE_up,
+  IvsH_DGE_down = IvsH_DGE_down,
+  ITvsI_DGE_up = ITvsI_DGE_up,
+  ITvsI_DGE_down = ITvsI_DGE_down
+)
+
+upset(fromList(lista_genes), order.by = "freq")
 
 #######################
 ## Pregunta número 6 ##
@@ -350,7 +366,7 @@ venn(list("IvsH_up"=IvsH_DGE_up, "IvsH_down"=IvsH_DGE_down,
 ## Primer apartado:
 IvsH_DGE_filt <- IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & abs(IvsH_DGE$table$logFC)>=1,]
 ITvsI_DGE_filt <- ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & abs(ITvsI_DGE$table$logFC)>=1,]
-all_DGE_filt <- intersect(row.names(IvsH_DGE_filt),row.names(ITvsI_DGE_filt))
+all_DGE_filt <- intersect(row.names(IvsH_DGE_filt), row.names(ITvsI_DGE_filt))
 # Extracción de datos normalizados
 cpms <- cpm(y$counts, log =TRUE)
 colnames(cpms) <- rownames(metadata)
@@ -366,74 +382,64 @@ head(rowSds(matrix_DGE_zscore))
 
 matrix_DGE_cpm_long <- matrix_DGE_cpm %>%
   as.data.frame() %>%
-  mutate(matriz = rep("CPMs", nrow(matrix_DGE_cpm))) %>% 
+  mutate(matriz = rep("Matriz CPM", nrow(matrix_DGE_cpm))) %>% 
   pivot_longer(-matriz, names_to = "muestras", values_to = "valores")
 
 matrix_DGE_zscore_long <- matrix_DGE_zscore %>%
   as.data.frame() %>%
-  mutate(matriz = rep("Zscore", nrow(matrix_DGE_cpm))) %>% 
+  mutate(matriz = rep("Matriz Z-score", nrow(matrix_DGE_cpm))) %>% 
   pivot_longer(-matriz, names_to = "muestras", values_to = "valores")
 
 rbind(matrix_DGE_cpm_long, matrix_DGE_zscore_long) %>%
   ggplot(aes(valores, fill=matriz)) +
-  geom_density(color="black", show.legend = FALSE) +
-  geom_vline(xintercept = c(-1,1)) +
-  facet_grid(~matriz)
+  geom_density(color="black", alpha=.75) +
+  labs(title = "Antes y después de realizar Z-score",
+       x = "Valores") +
+  scale_x_continuous(limits = c(-4, 12),
+                     breaks = seq(-4,12,2)) +
+  scale_fill_manual(name=NULL,
+                    values = c("orange", "black")) +
+  theme_test()+ 
+  theme(legend.position = c(.8,.7))
 
-# Calcular las distancias entre cada gen
-gene_dist <- dist(matrix_DGE_zscore,method = "manhattan")
-# Perform hierarchical clustering using hclust()
-gene_hclust <- hclust(gene_dist, method = "complete")
+plot(density(matrix_DGE_cpm))
+plot(density(matrix_DGE_zscore))
 
-pheatmap(
-  matrix_DGE_cpm,
-  cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
-  cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
-  show_rownames = FALSE, # There are too many genes to clearly show the labels,
-  # clustering_distance_rows = "manhattan",
-  # clustering_distance_cols = "manhattan",
-  main = "Heatmap intersection DEG (Euclidean distances)",
-  colorRampPalette(c(
+
+for(i in c("euclidean", "manhattan")){
+  pheatmap(
+    matrix_DGE_cpm,
+    cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
+    cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
+    show_rownames = FALSE, # There are too many genes to clearly show the labels,
+    clustering_distance_rows = i,
+    clustering_distance_cols = i,
+    main = glue("Heatmap intersection DEG {i}"),
+    colorRampPalette(c(
     "skyblue",
-             "white",
-             "red"
-  ))(25
-  ),
-  scale = "row") # Scale values in the direction of genes (rows)
+              "white",
+              "red"
+    ))(25
+    ),
+    scale = "row") # Scale values in the direction of genes (rows)
+}
 
-pheatmap(
-  matrix_DGE_cpm,
-  cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
-  cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
-  show_rownames = FALSE, # There are too many genes to clearly show the labels,
-  clustering_distance_rows = "manhattan",
-  clustering_distance_cols = "manhattan",
-  main = "Heatmap intersection DEG (Manhattan distances)",
-  colorRampPalette(c(
-    "skyblue",
-             "white",
-             "red"
-  ))(25
-  ),
-  scale = "row") # Scale values in the direction of genes (rows)
 
 ## Último apartado, filtramos el coronavirus
 madtrix_betacoronavirus <- matrix_DGE_cpm %>%
-  as.data.frame() %>%
-  mutate(gene_id=rownames(matrix_DGE_cpm)) %>% 
-  filter(str_detect(gene_id, "^\\d")) %>%
-  select(-gene_id) %>% 
+  as.data.frame() %>% 
+  filter(str_detect(rownames(matrix_DGE_zscore), "^\\d")) %>%
   as.matrix()
 
-
+for(i in c("euclidean", "manhattan")){
 pheatmap(
   madtrix_betacoronavirus,
-  cluster_rows = TRUE, # Cluster the rows of the heatmap (genes in this case)
-  cluster_cols = TRUE, # Cluster the columns of the heatmap (samples),
-  show_rownames = FALSE, # There are too many genes to clearly show the labels,
-  clustering_distance_rows = "manhattan",
-  clustering_distance_cols = "manhattan",
-  main = "Heatmap intersection DEG (Manhattan distances)",
+  cluster_rows = TRUE, 
+  cluster_cols = TRUE, 
+  show_rownames = FALSE, 
+  clustering_distance_rows = i,
+  clustering_distance_cols = i,
+  main = glue("Heatmap intersection DEG {i}"),
   method="complete",
   colorRampPalette(c(
     "skyblue",
@@ -442,7 +448,7 @@ pheatmap(
   ))(25
   ),
   scale = "row")
-
+}
 #######################
 ## Pregunta número 7 ##
 #######################
@@ -458,12 +464,18 @@ ITvsI_DGE_down <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$tabl
 
 buscar_go <- function(names_regulated){
   cuerpo = for(i in c("BP", "MF")) {
+    print(glue("===> {i} <==="))
     funer <- base[base$ensembl_id %in% names_regulated, ]
     go <- goana(funer$gene_id, species="Mm", geneid= "ENTREZID") # Busqueda de go y estudio de su frecuencia
     print(topGO(go, ontology=i, number = 3))
   }
   return(cuerpo)
-};buscar_go(IvsH_DGE_up); buscar_go(IvsH_DGE_down); buscar_go(ITvsI_DGE_up); buscar_go(ITvsI_DGE_down)
+}
+
+buscar_go(IvsH_DGE_up)
+buscar_go(IvsH_DGE_down)
+buscar_go(ITvsI_DGE_up)
+buscar_go(ITvsI_DGE_down)
 
 ## Segundo apartado ##
 ## Uso de DOSE
