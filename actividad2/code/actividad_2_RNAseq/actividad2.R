@@ -244,9 +244,21 @@ is.deIH <- decideTestsDGE(IvsH)
 plotMD(IvsH, status=is.deIH, cex = 0.5, legend = "bottomright")
 abline( h = c( -1, 1 ), col = "black")
 
+plotSmear(y, cex = .5)
+
 is.deITI <- decideTestsDGE(ITvsI)
 plotMD(ITvsI, status=is.deITI, cex = 0.5, legend = "bottomright")
 abline( h = c( -1, 1 ), col = "black")
+
+detags_IvsH <- rownames(IvsH)[as.logical(is.deIH)]
+plotSmear(IvsH, de.tags = detags_IvsH, 
+          main="Smearplot Infectados vs Sanos", 
+          xlab = "Average logCPM", ylab = "logFC")
+
+detags_ITvsI <- rownames(ITvsI)[as.logical(is.deITI)]
+plotSmear(ITvsI, de.tags = detags_ITvsI, 
+          main="Smearplot Infectados tratados vs Infectados"
+          ,xlab = "Average logCPM", ylab = "logFC")
 
 ## Tercer apartado
 IvsH_DGE_volcano <- IvsH_DGE$table %>% 
@@ -431,16 +443,14 @@ madtrix_betacoronavirus <- matrix_DGE_cpm %>%
   filter(str_detect(rownames(matrix_DGE_zscore), "^\\d")) %>%
   as.matrix()
 
-for(i in c("euclidean", "manhattan")){
+for(i in c("complete", "average")){
 pheatmap(
   madtrix_betacoronavirus,
   cluster_rows = TRUE, 
   cluster_cols = TRUE, 
   show_rownames = FALSE, 
-  clustering_distance_rows = i,
-  clustering_distance_cols = i,
+  clustering_method = i,
   main = glue("Heatmap intersection DEG {i}"),
-  method="complete",
   colorRampPalette(c(
     "skyblue",
              "white",
