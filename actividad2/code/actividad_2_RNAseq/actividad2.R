@@ -285,7 +285,7 @@ ITvsI_DGE_volcano %>%
 
 ## Infectados vs Sanos
 top_3_genes_IvsH <- IvsH_DGE$table %>% 
-  arrange(PValue) %>% 
+  arrange(FDR) %>% 
   head(n=3)
 
 volcano1 <- IvsH_DGE_volcano %>% 
