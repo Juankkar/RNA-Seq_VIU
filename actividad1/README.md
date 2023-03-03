@@ -18,7 +18,7 @@ La actividad consiste en el análisis de una muestra real de RNA-seq que forma p
   * [6_pasar_sam_bam](code/6_pasar_sam_bam.sh): pasamos el archivo .sam obtenido del anterior script y lo pasamos a un archvo .bam.
   * [7_anotaciones_alineamiento](code/7_anotaciones_alineamiento.sh): En este script además de la descarga y anotación de los alineamientos mediante el archivo GTF de *Mus musculus*, terminamos con la formación de la matriz de conteos.
   * [8_all_code](code/8_all_code.sh): es un script cuya intención es correr todos los scripts al unísono. Tiene una serie de ***limitaciones*** como por ejemplo hay que tener Trim Galore instalado (script 3), con lo que está en desarrollo.
-  * [9_resete](code/reset.sh): sirve para resetear las estructuras de los directorios data y results.
+  * [9_reset](code/9_reset.sh): sirve para resetear las estructuras de los directorios data y results.
  
  * [data](data): conjunto de directorios con los datos, conforme se realicen los scripts se van rellenando.
   * [annotation](data/annotation): directorio con el que se almacenará principalmente archivo GTF de *Mus musculus*.
