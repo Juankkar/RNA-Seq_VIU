@@ -7,7 +7,7 @@ El objetivo de esta actividad es que el estudiante demuestre que ha adquirido la
 ### Obtención de los datos:
 La actividad consiste en el análisis de una muestra real de RNA-seq que forma parte de un estudio mayor sobre la eficacia del tratamiento con extracto de bacterias BV frente a la infección por betacoronavirus murino en un modelo de ratón.
 
-### Directorios: 
+### Estructura de directorios: 
 * [code](code): código usado, conjunto de scripts y el ambiente usado para el análisis.
   * [enviroments](code/enviroments): ambiente usado para este análisis llamado [05MBIF](code/enviroments/05MBIF.yml).
   * [1descarga_raw](code/1descarga_raw.sh): descarga de los datos crudos a usar, los cuales serán depositados en la carpeta raw dentro de data.
