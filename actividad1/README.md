@@ -20,6 +20,7 @@ La actividad consiste en el análisis de una muestra real de RNA-seq que forma p
   * [8_all_code](code/8_all_code.sh): es un script cuya intención es correr todos los scripts al unísono. Tiene una serie de ***limitaciones*** como por ejemplo hay que tener Trim Galore instalado (script 3), con lo que está en desarrollo.
   * [9_reset](code/9_reset.sh): sirve para resetear las estructuras de los directorios data y results.
  
+ 
  * [data](data): conjunto de directorios con los datos, conforme se realicen los scripts se van rellenando.
   * [annotation](data/annotation): directorio con el que se almacenará principalmente archivo GTF de *Mus musculus*.
   * [processed](data/processed): datos crudos procesados.
