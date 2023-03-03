@@ -24,7 +24,7 @@ La actividad consiste en el análisis de una muestra real de RNA-seq que forma p
  * [data](data): conjunto de directorios con los datos, conforme se realicen los scripts se van rellenando.
    * [annotation](data/annotation): directorio con el que se almacenará principalmente archivo GTF de *Mus musculus*.
    * [processed](data/processed): datos crudos procesados.
-   * [raw](data/raw): datos crudod de partida.
+   * [raw](data/raw): datos crudos con los que partimos partida.
    * [reference_genome](data/reference_genome): donde se almacenará el genoma de referencia.
   
  * [results](results): resultados varios, htmls, graficas, pero además la matriz de recuentos final.
