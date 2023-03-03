@@ -1,4 +1,4 @@
-# *Actividad 2 *From gene counts to DGE and pathways***
+# **Actividad 2 *From gene counts to DGE and pathways***
 
 ## Objetivo:
 
