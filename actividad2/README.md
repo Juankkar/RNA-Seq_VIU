@@ -8,7 +8,7 @@ El objetivo de esta actividad es que el estudiante demuestre que ha adquirido to
 
 ### Estructura de directorios
 
-* [code](code): carpeta con el código empleado, en este caso se trata de un único script en R, [actividad2.R](code/actividad_2_RNAseq/actividad2), que se encuentra en el proyecto [actividad_2_RNAseq](code/actividad_2_RNAseq).
+* [code](code): carpeta con el código empleado, en este caso se trata de un único script en R, [actividad2.R](code/actividad_2_RNAseq/actividad2.R), que se encuentra en el proyecto [actividad_2_RNAseq](code/actividad_2_RNAseq).
 
 * [data](data): datos con los que se ha trabjado en este trabajo.
   * [experimento_GSE167749](data/experimento_GSE167749.tsv): se trata de los metadatos.
