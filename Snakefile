@@ -34,6 +34,8 @@ rule download_data:
         touch("task/download_data.done")
     params:
         field=config["field_download"]
+    conda:
+      "code/envairoments/env.yml"
     shell:
         """
         bash {input.script} {params.field}
@@ -45,6 +47,8 @@ rule reference_genome:
         "data/reference/genome.fa"
     params:
         genome=config["reference_genome"]
+    conda:
+      "code/envairoments/env.yml" 
     shell:
         """
         wget -O {output}.gz {params.genome} 
@@ -63,6 +67,8 @@ rule ver_datos:
     script = "code/2num_lineas.py"
   output:
     "results/visualizar_datos/{sample}.txt"
+  conda:
+    "code/envairoments/env.yml" 
   shell:
     """
     num_linea=$(echo $(zcat {input.data} | awk {{'print NR'}} | tail -1))
@@ -90,6 +96,8 @@ rule fastqc:
     "data/raw/{sample}.fastq.gz"
   output:
     "results/fastqc/{sample}_fastqc.html"
+  conda:
+    "code/envairoments/env.yml" 
   shell:
     "fastqc {input} -o results/fastqc"
 
@@ -111,6 +119,8 @@ rule fastqc_trimmed:
     "data/processed/{sample}_trimmed.fq.gz"
   output:
     "results/fastqc/trimmed/{sample}_trimmed_fastqc.html"
+  conda:
+    "code/envairoments/env.yml" 
   shell:
     "fastqc {input} -o results/fastqc/trimmed"
 
@@ -123,6 +133,8 @@ rule mapping:
     "results/mapped_reads/{sample}_hisat2.sam"
   params:
     strand = config["strandness"]
+  conda:
+    "code/envairoments/env.yml" 
   shell:
     """
     ## Indexamos el genoma
@@ -176,6 +188,8 @@ rule download_annotations:
     "code/3anotaciones.sh" 
   output:
     "data/annotations/genome.gtf"
+  conda:
+    "code/envairoments/env.yml" 
   shell:
     """
     bash {input}
@@ -184,6 +198,8 @@ rule download_annotations:
 rule pregunta7:
   output:
     "results/visualizar_datos/pregunta7/{sample}.txt"
+  conda:
+    "code/envairoments/env.yml" 
   shell:
     """
     ## Responder a las siguientes cuestiones:
@@ -228,17 +244,26 @@ rule counts:
     """
 
 rule data_analysisR:
+  input:
+    "code/4data_analysis.Rmd"
+  output:
+    "results/4data_analysis.html"
   params:
     dir1 = "results/data_analysis/",
     dir2 = "results/data_analysis/plots/",
     dir3 = "results/data_analysis/tables/"
+  conda:
+    "code/envairoments/data_analysisR.yml"
   shell:
     """
-    if [[ ! -d results/data_analysisR/ ]]
+    if [[ ! -d results/data_analysis/ ]]
     then
       for dir in {params.dir1} {params.dir2} {params.dir3} 
       do
         mkdir $dir 
       done
     fi
+
+    R -e "library(rmarkdown); render('{input}')"
+    mv code/4data_analysis.html results/ 
     """

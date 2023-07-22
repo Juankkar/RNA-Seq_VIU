@@ -17,10 +17,10 @@ dependencies:
   - r-ggrepel=0.9.3
   - r-upsetr=1.4.0
   - snakemake=7.30.1
-  - r-rmarkdown=1.7
+  - r-rmarkdown=2.23
   - r-tinytex=0.45
-  - statmod=1.5.0
+  - r-statmod=1.5.0
   - bioconductor-go.db=3.17.0
   - bioconductor-org.mm.eg.db=3.17.0
-  - bioconda bioconductor-limma=3.56.2
+  - bioconductor-limma=3.56.2
   - bioconductor-clusterprofiler=4.8.1

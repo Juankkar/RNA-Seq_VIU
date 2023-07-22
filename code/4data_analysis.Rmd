@@ -1,4 +1,31 @@
-#!/usr/bin/env Rscript
+---
+title: "Actividad de RNA-Seq VIU"
+author: "Juan Carlos García Estupiñán"
+output: html_document
+email_address: jcge97@gmail.com 
+github_repo: https://github.com/Juankkar/RNA-Seq_VIU
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+# **From gene counts to DEG and pathways**
+
+### **Objetivo**
+
+El objetivo de esta actividad es que el estudiante demuestre que ha adquirido todas las habilidades y competencias necesarias para llevar a cabo un tratamiento estadístico adecuado para determinar los genes diferencialmente expresados entre diferentes escenarios y extraer cuáles son los principales términos ontológicos enriquecidos.
+
+### **Obtención de los datos**
+La actividad consiste en el análisis de una muestra real de RNA-seq que forma parte de un estudio mayor sobre la eficacia del tratamiento con extracto de bacterias BV frente a la infección por betacoronavirus murino en un modelo de ratón.
+
+La publicación es la siguiente:
+
+Salzmann M, Haider P, Kaun C, Brekalo M, Hartmann B, Lengheimer T, Pichler R, Filip T, Derdak S, Podesser B, Hengstenberg C, Speidl W, S, Wojta J, Plasenzotti R, Hohensinner P, J: Innate Immune Training with Bacterial Extracts Enhances Lung Macrophage Recruitment to Protect from Betacoronavirus Infection. JInnate Immun 2022;14:293-305. doi: 10.1159/000519699
+
+
+```{r, include=FALSE}
+# Librarías que vamos a usar, que se encuentran en el ambiente data_analysisR
 
 library(tidyverse)
 library(edgeR)
@@ -10,33 +37,47 @@ library(pheatmap)
 library(matrixStats)
 library(ggrepel)
 library(UpSetR)
+```
 
-files <- dir("results/tables/", pattern = "*.tsv$")
+**P1. Lee la tabla del diseño experimental, Experimento_GSE167749.tsv y contesta a las siguientes preguntas. Recuerda añadir siempre los comandos empleados y el resultado de su ejecución (0,5 pts)**
 
+*En mi caso, como lo he hecho entero, pondré como he preprocesado los conteos de todas las muestras*
+
+```{r}
+
+## Los nombres de nuestras muestras
+files <- dir("../results/tables/", pattern = "*.tsv$")
+
+## Juntamos los conteos de los genes y preprocesamos
 recuentos <- as.data.frame(
     readDGE(
         files = files,
-        path = "results/tables/"
+        path = "../results/tables/"
         )$counts 
     ) 
 
-## Esto nos lo dio la profesora, no me acuerdo muy bien de donde sale
-betacov_counts <- read.delim("metadata/betacoronavirus.tsv",  row.names = 1)
+## conteos de los Coronavirus proporcionados por la profesora
+betacov_counts <- read.delim("../metadata/betacoronavirus.tsv",  row.names = 1)
 
 recuentos <- recuentos %>%
   filter(!(str_detect(rownames(recuentos), "^__"))) 
 
 colnames(recuentos) <- colnames(betacov_counts)
 
+## Tabla final con los genes de ratón y coronavirus
 recuentos <- rbind(recuentos, betacov_counts)
 
-#######################
-## Pregunta número 1 ##
-#######################
-
 ## Cargamos los metadatos ##
-metadata <- read.delim("metadata/experimento_GSE167749.tsv", row.names = 1)
-metadata
+metadata <- read.delim("../metadata/experimento_GSE167749.tsv", row.names = 1)
+
+```
+
+* Realiza una representación gráfica/visual de este archivo y explica brevemente el contenido de cada columna.
+    * En este gráfico vemos las muestras del estudio, consistieron en 5 muestras por grupo de
+tratamiento. Por un lado, tenemos 5 ratones sanos, 5 infectados y otros 5 infectados
+tratados 
+
+```{r}
 
 tabla <- data.frame(table(metadata$GEO, metadata$disease_state))
 visual_metadata <- tabla %>% 
@@ -48,17 +89,23 @@ visual_metadata <- tabla %>%
   labs(
     title = "Muestras frente a los grupos",
     y = "Muestras",
-    x = "Grupos de tratameinto"
+    x = "Grupos de tratameinto",
+    caption = "Figura 1. Representación gráfica de las muestras y los grupos que forman"
   ) +
   scale_fill_gradient(low = "white", high = "red") +
   theme(panel.background = element_blank(),
-        plot.title = element_text(hjust = .5, face="bold"))
-
+        plot.title = element_text(hjust = .5, face="bold"));visual_metadata
+```
+```{r, include=FALSE}
 ggsave(plot = visual_metadata,
-       file = "results/data_analysis/plots/visual_metadata.png",
+       file = "../results/data_analysis/plots/visual_metadata.png",
        width=7,
        height=5)
+```
 
+* **A partir de esta información, crea la matriz de diseño que reflejará cuáles son los grupos de muestras que explican el conjunto de datos para el análisis de regresión. Indica aquí el código empleado y cómo luce**
+
+```{r}
 grupos <- factor(metadata$disease_state)
 table(grupos)
 
@@ -66,13 +113,23 @@ diseño <- model.matrix(~0+grupos)
 colnames(diseño) <- c("healthy","infected","infected_treated")
 rownames(diseño) <- rownames(metadata)
 
+diseño %>% head()
+```
 
-#######################
-## Pregunta número 2 ##
-#######################
+**P2. Lee la matriz de recuentos Recuento_GSE167749.tsv y contesta a las siguientes preguntas. Recuerda añadir siempre los comandos empleados y el resultado de su ejecución (1,5 pts).** 
 
+* Esto ya lo hicimos al principio.
+
+* **Visualiza la relación entre la media y la varianza por gen. Para ello computa la media de los conteos para cada gen y su varianza para las 5 réplicas que forman parte del grupo de ratones enfermos no tratados. Explica la gráfica obtenida.**
+
+    * En la primera parte del código lo que hacemos es modificar el df de recuentos en el que añadimos una columna de la media de las filas y las varianzas para los ratones infectados. Luego nos deshacemos de los campos con las muestras
+
+```{r, include = FALSE}
+## Cambiamos los nombres de la matriz de recuentos
 colnames(recuentos) <- row.names(metadata)
+```
 
+```{r}
 ## Representación de los recuentos de la media frente la variaza
 infected_counts <- recuentos %>% 
   mutate(mean_counts=apply(recuentos[,6:10],1,mean),
@@ -97,24 +154,37 @@ mean_variance <- infected_counts %>%
     plot.subtitle = element_text(hjust = .5, face = "italic", size = 12),
     axis.title = element_text(face = "bold", size = 12),
     axis.text = element_text(color = "black")
-  )
+  );mean_variance
+```
 
+```{r, include=FALSE}
 ggsave(plot = mean_variance,
-       file = "results/data_analysis/plots/mean_variance.png",
+       file = "../results/data_analysis/plots/mean_variance.png",
        width=7,
        height=5)
+```
+* ¿Cuántos genes figuran en la matriz de recuentos? ¿Cuántos son genes de ratón y cuántos de betacoronavirus?.
+    * La primera pregunta la podemos contestar simplemente contando el número de líneas de la matriz.
+    * Para la siguiente lo que podemos es usar group_by() %>% summarise() tras una condición (case_when() con mutate()) para llamar a los genes de Mus musculus por un lado y a los de Betacoronavirus por otro: 
 
+```{r}
 ## Cuantos genes figuran en la matriz de recuentos? cauntos son por betacoronavirus?
-# Un total de 55431
+
 recuentos %>% nrow() 
-# Un total de 55421 gene de ratón y 10 genes de beta coronavirus
+
 recuentos %>%
   mutate(genes = rownames(recuentos),
          especie=case_when(grepl("ENSMUS", genes)~"Ratón",
                            !(grepl(("ENSMUS"), genes))~"Betacoronavirus")) %>%
   group_by(especie) %>%
   summarise(n=n())
+```
 
+* **¿Qué cantidad de genes se mantienen en el dataset si aplicamos un filtro de eliminación de genes que presentan una expresión nula (0) y otros más restrictivo, que presenten una expresión mínima de 4 y 10 conteos por gen respectivamente? Para responder a esta pregunta deberás realizar tres veces la eliminación/filtrado de genes atendiendo a estos valores y construir tres histogramas con el resultado de la función aveLogCPM en cada uno de los casos y comentar su resultado.** 
+
+    * Lo que podemos ver, es que a medida que aumentamos el filtro de expresión mínima van disminuyendo la cantidad de genes con los que nos vamos quedando, sobre todo aquellos poco expresados que se encuentran más a la izquierda de los histogramas 
+
+```{r}
 # Realizamos los filtros:
 filtrado1 <- recuentos[rowSums(recuentos) > 0,]
 filtrado2 <- recuentos[rowSums(recuentos) >= 4,]
@@ -144,25 +214,45 @@ hist3 <- gghist(filtrado3, aveLogCPM(filtrado3), ">= 10")
 ## Juntamos todos los histogramas
 expression_histograms <- plot_grid(hist1,hist2,hist3, nrow = 1)
 
+```
+
+```{r, include=FALSE}
 ggsave(plot = expression_histograms,
-       file = "results/data_analysis/plots/expression_histograms.png",
+       file = "../results/data_analysis/plots/expression_histograms.png",
        width=12,
        height=4)
+```
 
-#######################
-## pregunta número 3 ##
-#######################
+<p align="center">
+ 
+  <img src="../results/data_analysis/plots/expression_histograms.png" />
 
+</p>
+
+**P3. Siguiendo el análisis con la muestra filtrada por un valor de conteo mínimo de 4, convierte la matriz de recuentos en un objeto DGEList y normalízala mediante el método TMM. Recuerda añadir siempre los comandos empleados y el resultado de su ejecución y contesta las siguientes preguntas (1,5 pt).**
+
+```{r}
 preDGE <- filtrado2
 # creamos el objeto DGEList
 y <- DGEList(preDGE,group = grupos)
 y <- calcNormFactors(y,method = "TMM")
+```
+* **¿Qué muestras presentan un factor de normalización (norm.factors) menor de 1 y qué puede significar esto?** 
 
+```{r}
 ## apartado 1 vemos los norm.factors < 1
 y$samples %>%
   as_tibble() %>%
   filter(norm.factors < 1)
+```
 
+* **Dibuja dos gráficos de cajas o boxplot, uno con los contajes de los genes sin normalizar y el otro, con los contajes de los genes normalizados. Emplea una escala logarítmica para mejorar su visualización y comenta los resultados obtenidos.**
+
+    * Estos boxplots están trabajados y son estéticos, pero requieren mucho código así que lo que voy a hacer es compartir el código sólo de los normalizados, el otro es el mismo, pero en la función cpm(), en normalized.lib.sizes = F, y llamando a la data frame diferente. Se podría buscar una forma de no repetirlo dos veces haciendo una función como hice con los histogramas del ejercicio anterior, pero esto servirá, seguramente en un futuro lo mejore (dejaré un enlace a mi cuenta de GitHub con el repositorio y todo el código empleado igualmente).
+
+    * A simplemente no ha cambiado, pero sí que lo ha hecho, de forma muy sutil y de forma no significativa. Parece que no ha habido un gran efecto en la normalización de los datos
+
+```{r}
 ## segundo apartado
 no_normalizado <- cpm(y,normalized.lib.sizes = F, log=TRUE) %>%
   as.data.frame() %>% 
@@ -212,25 +302,36 @@ boxplot2 <- df_cpm %>%
   )
 
 boxplots_cpms <- plot_grid(boxplot1,boxplot2)
+```
 
+```{r, include=FALSE}
 ggsave(plot = boxplots_cpms,
-       file = "results/data_analysis/plots/boxplots_cpms.png",
+       file = "../results/data_analysis/plots/boxplots_cpms.png",
        width=9,
        height=5)
+```
 
+<p align="center">
+ 
+  <img src="../results/data_analysis/plots/boxplots_cpms.png" />
 
+</p>
+
+* **Genera un gráfico de MDS en el que cada grupo de muestras esté representado por un color y comenta brevemente como se asocian o diferencian dichas muestras.**
+
+```{r}
 ## tercer apartado
-png(file="results/data_analysis/plots/plotmds.png")
-
 plotMDS(y, col = as.numeric(y$samples$group), 
         gene.selection = "common")
+```
 
-#######################
-## Pregunta número 4 ##
-#######################
-# Calcula los tres tipos de dispersión en los datos del RNA-seq problema 
-# mediante la función estimateDisp y observa cómo la tagwise dispersion y 
-# la trended dipersion
+**P4. Calcula los tres tipos de dispersión en el objeto DGEList creado. Recuerda añadir siempre los comandos empleados y el resultado de su ejecución y contesta las siguientes preguntas (0,5 pt).**
+
+* **¿Cuáles son los valores de “trended dispersion”, y “tagwise dispersion” para los genes de Mus musculus: ENSMUSG00000078354, ¿ENSMUSG00000049176 y para el gen de betacoronavirus 55060280?**
+
+* **Después del ajuste de GLM con la función glmQLFit, ¿qué valores tienen los coefficients de los tres grupos experimentales para los genes de Mus musculus: ENSMUSG00000078354, ENSMUSG00000049176 y para el gen de betacoronavirus 55060280?**
+
+```{r}
 y <- estimateDisp(y, diseño, robust=TRUE)
 ## Creamos un tibble con los vectores que nos interes y filtramos los genes
 ## de interés
@@ -249,9 +350,13 @@ fit$coefficients %>%
                       "ENSMUSG00000049176",
                       "55060280"))
 
-#######################
-## Pregunta número 5 ##
-#######################
+```
+
+**P5. Utiliza la función glmQLFTest para realizar la prueba de hipótesis nula en las siguientes comparaciones:**
+* Ratones infectados (sin tratar) contra el grupo sano.
+* Ratones infectados (con tratamiento) contra Ratones infectados (sin tratar). 
+
+```{r}
 # Creamos los grupos
 I_H_contrast <- makeContrasts(infected-healthy, levels=diseño)
 IT_I_contrast <-makeContrasts(infected_treated-infected, levels=diseño)
@@ -261,7 +366,15 @@ ITvsI  <- glmQLFTest(fit, contrast = IT_I_contrast)
 
 IvsH_DGE <- topTags(IvsH, n=Inf)
 ITvsI_DGE <- topTags(ITvsI, n=Inf)
+```
 
+**Utiliza la función topTags sobre cada uno de los test realizados anteriormente y observa cómo se genera una nueva columna con la corrección de la hipótesis nula a FDR. Recuerda añadir siempre los comandos empleados y el resultado de su ejecución y contesta a las siguientes preguntas (2,5 pts).**
+
+* Genera un histograma con los valores no ajustados de p-value y con los valores obtenidos de FDR. ¿Qué diferencias puedes observar?
+   
+    * A simple vista lo que se puede observar es que los p-value presentan más genes significativos, que parecen ser falsos positivos, ya que al aplicar la corrección de BH y crear los FDR lo que vemos es que ya no hay tantos. Es decir lo que hacemos es eliminar los falsos positivos.
+
+```{r}
 list_exp_diff <- list(IvsH_DGE$table$PValue, ITvsI_DGE$table$PValue,
                       IvsH_DGE$table$FDR, ITvsI_DGE$table$FDR)
 
@@ -273,13 +386,18 @@ xlabel <- c("p-value", "FDR", "p-value", "FDR")
 ## Creamos los histogramas
 for (plot in 1:length(list_exp_diff)){
     
-    png(glue("results/data_analysis/plots/hist{plot}.png"))
-    hist(list_exp_diff[[plot]], 
+    print(hist(list_exp_diff[[plot]], 
          main=main_hist_vec[plot],
-         xlab=xlabel[plot])
+         xlab=xlabel[plot]))
 
 }
+```
 
+* **¿Cuántos genes diferencialmente expresados (DEG), aplicando un punto de corte de (FDR <= 0.05), encuentras en cada una de las comparativas realizadas? Dibuja un Smearplot o plotMD con los resultados obtenidos en cada una de las comparativas y coméntalos brevemente. ¿Cuántos genes pierdes en cada una de las comparaciones anteriores si aplicas un punto de corte más restrictivo (FDR <= 0.01)?**
+
+    * Resultados al aplicar un FDR <= 0.05:
+
+```{r}
 ## Segundo apartado ##
 tibble(
 Infected_vs_Healthy = IvsH_DGE$table %>% filter(FDR <= 0.05) %>% nrow(),
@@ -290,30 +408,48 @@ tibble(
   Infected_vs_Healthy = IvsH_DGE$table %>% filter(FDR <= 0.01) %>% nrow(),
   InfectesT_vs_Infected = ITvsI_DGE$table %>% filter(FDR <= 0.01) %>% nrow()
 ) 
+```
 
+* Y realizamos los gráficos MD para cada uno de los grupos: podemos ver aquellos genes sobreexpresados en rojo y los infraexpresados en azul. Podemos ver que parecen haber expresión de genes de forma diferentes entre las dos comparaciones.
+
+```{r}
 ## Hacemos el plot MDS
 is.deIH <- decideTestsDGE(IvsH)
 plotMD(IvsH, status=is.deIH, cex = 0.5, legend = "bottomright")
 abline( h = c( -1, 1 ), col = "black")
-png("results/data_analysis/plots/plotsmear_IvsH.png")
-plotSmear(y, cex = .5)
 
 is.deITI <- decideTestsDGE(ITvsI)
 plotMD(ITvsI, status=is.deITI, cex = 0.5, legend = "bottomright")
 abline( h = c( -1, 1 ), col = "black")
+```
+
+* También he realizado los Smearplots 
+
+* En cuanto al FDR <= 0.01 (el código es igual). Como era de esperar, al ser más estrictos con el p-valor corregido, lo que vemos es que hay menos genes que consideramos significativamente expresados diferencialmente.
+
+```{r}
 
 detags_IvsH <- rownames(IvsH)[as.logical(is.deIH)]
-png("results/data_analysis/plots/plotsmear_detags_IvsH.png")
 plotSmear(IvsH, de.tags = detags_IvsH, 
           main="Smearplot Infectados vs Sanos", 
           xlab = "Average logCPM", ylab = "logFC")
 
 detags_ITvsI <- rownames(ITvsI)[as.logical(is.deITI)]
-png("results/data_analysis/plots/plotsmear_detags_IvsIT.png")
 plotSmear(ITvsI, de.tags = detags_ITvsI, 
-          main="Smearplot Infectados tratados vs Infectados"
-          ,xlab = "Average logCPM", ylab = "logFC")
+          main="Smearplot Infectados tratados vs Infectados",
+          xlab = "Average logCPM", ylab = "logFC")
+```
 
+
+
+
+* **Seguidamente, decide dos puntos de corte, tanto para el FDR como para el logFC y justifica dicha elección. ¿Cuántos DEG encuentras en cada una de las comparativas realizadas? Indica cuántos se sobreexpresan y cuántos se infraexpresan en cada una de las comparaciones. Dibuja un Volcanoplot con los resultados obtenidos y etiqueta los 3 top genes para cada una de las comparativas realizadas.**
+
+    * Los puntos de corte que voy a escoger del Log2FC son el -1 y 1. Por lo que he estado leyendo en los foros de bioinformática no hay hoy en día un rango definido para estos análisis. Además, viendo los plotMD del ejercicio anterior, creo que es un rango óptimo porque por encima de estos (hablando de forma absoluta) se expresarían diferencialmente muy pocos, y por debajo lo contrario.
+
+    * Encontramos los diferencialmente expresados de forma significativa y con un log FoldChange correspondiente. Esta forma de filtrar tendrá sentido para realizar los volcano plots:
+
+```{r}
 ## Tercer apartado
 IvsH_DGE_volcano <- IvsH_DGE$table %>% 
   mutate(genes_id=rownames(IvsH_DGE$table),
@@ -335,8 +471,11 @@ ITvsI_DGE_volcano <- ITvsI_DGE$table %>%
 ITvsI_DGE_volcano %>% 
   group_by(expresion) %>%
   summarise(n=n())
- 
+```
 
+* He realizado los gráficos de volcano a mano con ggplot2, como es mucho código voy a adjuntar sólo uno de ellos, además del filtrado para obtener los top3 genes. Me parece un gráfico muy llamativo e interesante y me gustaría intentar representarlo a mi gusto. Además, me manejo mejor con las etiquetas con este paquete.
+
+```{r}
 ## Infectados vs Sanos
 top_3_genes_IvsH <- IvsH_DGE$table %>% 
   arrange(FDR) %>% 
@@ -402,12 +541,24 @@ volcano2 <- ITvsI_DGE_volcano %>%
         axis.title.x = element_markdown())
 
 volvano_grid <- plot_grid(volcano1, volcano2)
+```
 
+```{r, include = FALSE}
 ggsave(plot = volvano_grid,
-       file = "results/data_analysis/plots/volvano_grid.png",
+       file = "../results/data_analysis/plots/volvano_grid.png",
        width=9,
        height=5)
+```
 
+<p align="center">
+ 
+  <img src="../results/data_analysis/plots/volvano_grid.png" />
+
+</p>
+
+* ¿Cuántos genes son únicos y compartidos entre los grupos experimentales comparados? Para ello realiza un diagrama de Venn o un Upset plot donde muestres los resultados según los puntos de corte que has decidido en el punto anterior.
+
+```{r}
 ## Último apartado
 IvsH_DGE_up <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC>=1,])
 IvsH_DGE_down <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC<=-1,])
@@ -416,12 +567,14 @@ ITvsI_DGE_up <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$
 ITvsI_DGE_down <- row.names(ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & ITvsI_DGE$table$logFC<=-1,])
 
 # Vennplot
-png("results/data_analysis/plots/venn_plot.png")
 venn(list("IvsH_up"=IvsH_DGE_up, "IvsH_down"=IvsH_DGE_down, 
           "ITvsI_up"=ITvsI_DGE_up, "ITvsI_down"=ITvsI_DGE_down ),
            zcolor = c("#999999", "#E69F00", "#56B4E9", "#009E73"))
+```
 
+* También he hecho un UpSet plot, que es más sencillo de interpretar que el anterior:
 
+```{r}
 ## UpSet plot
 lista_genes <- list(
   IvsH_DGE_up = IvsH_DGE_up,
@@ -430,29 +583,41 @@ lista_genes <- list(
   ITvsI_DGE_down = ITvsI_DGE_down
 )
 
-png("results/data_analysis/plots/upset_plot.png")
 upset(fromList(lista_genes), order.by = "freq")
+```
 
-#######################
-## Pregunta número 6 ##
-#######################
+**P6. Transforma la matriz de datos normalizados a Z-scores y contesta a las siguientes preguntas Recuerda añadir siempre los comandos empleados y el resultado de su ejecución (2 pts).**
+
+```{r}
 ## Primer apartado:
 IvsH_DGE_filt <- IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & abs(IvsH_DGE$table$logFC)>=1,]
 ITvsI_DGE_filt <- ITvsI_DGE[ITvsI_DGE$table$FDR<=0.05 & abs(ITvsI_DGE$table$logFC)>=1,]
 all_DGE_filt <- intersect(row.names(IvsH_DGE_filt), row.names(ITvsI_DGE_filt))
+
 # Extracción de datos normalizados
 cpms <- cpm(y$counts, log =TRUE)
 colnames(cpms) <- rownames(metadata)
 head(cpms)
+
 # Hacemos un subset con los genes de interes
 matrix_DGE_cpm <- cpms[all_DGE_filt,]
 head(rowSds(matrix_DGE_cpm))
+
 # Transformar la matriz de datos a Z-Score (función scale)
 zscore_fun <- function(x){(x-mean(x))/sd(x)}
+
 # Y escalamos
 matrix_DGE_zscore <- t(apply(matrix_DGE_cpm,1,zscore_fun))
 head(rowSds(matrix_DGE_zscore))
+```
 
+* **Dibuja un gráfico de densidad representando por una parte los CPM y por otra los Z-score calculados a lo largo de la matriz de recuentos. ¿Qué diferencias puedes observar?**
+
+    * El siguiente código requiere un mayor trabajo que usar la función density(), pero creo que da un mejor resultado para comparar ambas distribuciones, antes y después del Z-score.
+    * Como vemos en la comparación de las dos distribuciones es que hemos logrado es que la distribución de los valores se aproximadamente a 1 y la media tenga una media de 0.
+
+
+```{r}
 matrix_DGE_cpm_long <- matrix_DGE_cpm %>%
   as.data.frame() %>%
   mutate(matriz = rep("Matriz CPM", nrow(matrix_DGE_cpm))) %>% 
@@ -473,13 +638,22 @@ density_plot <- rbind(matrix_DGE_cpm_long, matrix_DGE_zscore_long) %>%
   scale_fill_manual(name=NULL,
                     values = c("orange", "black")) +
   theme_test()+ 
-  theme(legend.position = c(.8,.7))
- 
+  theme(legend.position = c(.8,.7));density_plot
+```
+
+```{r, include=FALSE}
 ggsave(plot = density_plot,
-       file = "results/data_analysis/plots/density_plot.png",
+       file = "../results/data_analysis/plots/density_plot.png",
        width=7,
        height=5) 
- 
+```
+
+* **Filtra la matriz completa tomando sólo los genes compartidos entre los grupos experimentales comparados (resultado de la pregunta P5, punto 4) y genera un heatmap empleando la función pheatmap y comenta tu resultado. ¿El resultado es el mismo si aplicas otro método para computar las distancias entre cada gen?**
+
+    * Yo el filtro ya lo apliqué en el código del principio, igual me equivoco, pero entendería que es necesario hacerlo antes de los gráficos de densidad, y de esa forma ver la distribución de los datos con los que vamos a trabajar de ahora en adelante.
+    * El resultado de realizar un tipo de aglomeramiento u otro no parece que es el mismo, o al menos a simple vista, aunque el resultado en sí es similar. Los dendogramas han cambiado de posición al menos, porque usan distintos algoritmos a la hora de calcular las distancias.
+
+```{r}
 for(i in c("euclidean", "manhattan")){
   
   heat_map <- pheatmap(
@@ -498,13 +672,18 @@ for(i in c("euclidean", "manhattan")){
     ),
     scale = "row") # Scale values in the direction of genes (rows)
 
+  print(heat_map) 
+
   ggsave(plot = heat_map,
-         file = glue("results/data_analysis/plots/{i}_distances_heatmap.png"),
+         file = glue("../results/data_analysis/plots/{i}_distances_heatmap.png"),
          width=7,
          height=5) 
 }
+```
 
+* **Filtra la matriz tomando sólo los genes del betacoronavirus y genera un heatmap empleando la función pheatmap y comenta tu resultado. ¿El resultado es el mismo si aplicas otro método de aglomeramiento o linkage?** 
 
+```{r}
 # Último apartado, filtramos el coronavirus
 madtrix_betacoronavirus <- matrix_DGE_cpm %>%
   as.data.frame() %>% 
@@ -512,7 +691,7 @@ madtrix_betacoronavirus <- matrix_DGE_cpm %>%
   as.matrix()
 
 for(i in c("complete", "average")){
-  png(glue("results/data_analysis/{i}_cluster_heatmap.png"))
+  
   heat_map <- pheatmap(
     madtrix_betacoronavirus,
     cluster_rows = TRUE, 
@@ -527,20 +706,26 @@ for(i in c("complete", "average")){
     ))(25
     ),
     scale = "row")
+  
+  print(heat_map)     
 
   ggsave(plot = heat_map,
-           file = glue("results/data_analysis/plots/{i}_clusters_heatmap.png"),
+           file = glue("../results/data_analysis/plots/{i}_clusters_heatmap.png"),
            width=7,
            height=5) 
 }
 
-#######################
-## Pregunta número 7 ##
-#######################
+```
+
+**P7. Finalmente, categoriza los grupos de genes diferenciales de ambas comparativas en 4 grupos, según se se sobreexpresen o infraexpresen y realiza el análisis de enriquecimiento funcional para cada uno de ellos indicando los 3 primeros resultados que reporta topGO en las categorías BP y MF (1,5 pts).**
+
+```{r, include=FALSE}
 library(GO.db) ## OJO, enmascara funciones de dplyr, no bueno asi que lo dejo por aqui
 require(org.Mm.eg.db)
-
 library(limma)
+```
+
+```{r}
 base <- as.data.frame(org.Mm.egENSEMBL2EG)
 IvsH_DGE_up <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC>=1,])
 IvsH_DGE_down <- row.names(IvsH_DGE[IvsH_DGE$table$FDR<=0.05 & IvsH_DGE$table$logFC<=-1,])
@@ -561,15 +746,24 @@ buscar_go(IvsH_DGE_up)
 buscar_go(IvsH_DGE_down)
 buscar_go(ITvsI_DGE_up)
 buscar_go(ITvsI_DGE_down)
+```
 
+* **¿Podrías realizar otro tipo de análisis de enriquecimiento funcional? (coméntalo teóricamente y si te atreves intenta realizarlo con alguno de los grupos a estudio).**
+
+    * He encontrado un tipo de enriquecimiento ambiental de la librería clusterProfiler con el que puedes realizar KEGG que toma datos de los genes expresados en la base de datos de Kyoto Encyclopedia of Genes and Genomes en Japón. Lo bueno de esta librería (me di cuanta tarde que puedes hacer KEGG con el paquete anterior) es que puedes graficar los resultados un barplot.
+
+```{r, include=FALSE}
 ## Segundo apartado ##
 ## Uso de DOSE
 library(clusterProfiler)
+```
+
+```{r}
 funer <- base[base$ensembl_id %in% IvsH_DGE_up, ]
 kegg <- enrichKEGG(gene = funer$gene_id,
                    organism = "mmu",
                    pvalueCutoff = .05,
                    qvalueCutoff = .05)
 
-png("results/data_analysis/plots/barplot_kegg.png")
 barplot(kegg)
+```
