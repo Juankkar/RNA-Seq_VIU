@@ -1,0 +1,29 @@
+#############
+## SAMPLES ##
+#############
+samples:
+  SRR13795616: data/raw/SRR13795616.fastq.gz
+  SRR13795617: data/raw/SRR13795617.fastq.gz
+  SRR13795618: data/raw/SRR13795618.fastq.gz
+  SRR13795619: data/raw/SRR13795619.fastq.gz
+  SRR13795619: data/raw/SRR13795620.fastq.gz
+  SRR13795621: data/raw/SRR13795621.fastq.gz
+  SRR13795622: data/raw/SRR13795622.fastq.gz
+  SRR13795623: data/raw/SRR13795623.fastq.gz
+  SRR13795624: data/raw/SRR13795624.fastq.gz
+  SRR13795625: data/raw/SRR13795625.fastq.gz
+  SRR13795626: data/raw/SRR13795626.fastq.gz
+  SRR13795627: data/raw/SRR13795627.fastq.gz
+  SRR13795628: data/raw/SRR13795628.fastq.gz
+  SRR13795629: data/raw/SRR13795629.fastq.gz
+  SRR13795630: data/raw/SRR13795630.fastq.gz
+
+################
+## PARAMETERS ##
+################
+
+field_download: 7
+
+reference_genome: https://ftp.ensembl.org/pub/release-109/fasta/mus_musculus/dna/Mus_musculus.GRCm39.dna.toplevel.fa.gz
+
+strandness: R

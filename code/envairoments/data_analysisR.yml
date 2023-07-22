@@ -1,0 +1,26 @@
+name: data_analysisR
+
+channels:
+  - conda-forge
+  - bioconda
+  - default
+
+dependencies:
+  - r-tidyverse=2.0.0
+  - bioconductor-edger=3.42.4
+  - r-cowplot=1.1.1
+  - r-glue=1.6.2
+  - r-ggtext=0.1.2
+  - r-venn=1.11
+  - r-pheatmap=1.0.12
+  - r-matrixstats=1.0.0
+  - r-ggrepel=0.9.3
+  - r-upsetr=1.4.0
+  - snakemake=7.30.1
+  - r-rmarkdown=1.7
+  - r-tinytex=0.45
+  - statmod=1.5.0
+  - bioconductor-go.db=3.17.0
+  - bioconductor-org.mm.eg.db=3.17.0
+  - bioconda bioconductor-limma=3.56.2
+  - bioconductor-clusterprofiler=4.8.1

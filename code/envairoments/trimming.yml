@@ -1,0 +1,12 @@
+name: trimming
+
+channels:
+  - conda-forge
+  - bioconda
+  - default
+
+dependencies:
+  - python=3.10.12
+  - cutadapt=4.4
+  - trim-galore=0.6.10
+  - snakemake=7.28.3
