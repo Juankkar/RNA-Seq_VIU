@@ -35,7 +35,7 @@ rule download_data:
     params:
         field=config["field_download"]
     conda:
-      "code/envairoments/env.yml"
+      "code/environments/rnaseq.yml"
     shell:
         """
         bash {input.script} {params.field}
@@ -48,7 +48,7 @@ rule reference_genome:
     params:
         genome=config["reference_genome"]
     conda:
-      "code/envairoments/env.yml" 
+      "code/environments/rnaseq.yml" 
     shell:
         """
         wget -O {output}.gz {params.genome} 
@@ -68,7 +68,7 @@ rule ver_datos:
   output:
     "results/visualizar_datos/{sample}.txt"
   conda:
-    "code/envairoments/env.yml" 
+    "code/environments/rnaseq.yml" 
   shell:
     """
     num_linea=$(echo $(zcat {input.data} | awk {{'print NR'}} | tail -1))
@@ -97,7 +97,7 @@ rule fastqc:
   output:
     "results/fastqc/{sample}_fastqc.html"
   conda:
-    "code/envairoments/env.yml" 
+    "code/environments/rnaseq.yml" 
   shell:
     "fastqc {input} -o results/fastqc"
 
@@ -108,7 +108,7 @@ rule trimming:
   output:
     "data/processed/{sample}_trimmed.fq.gz"
   conda:
-    "code/envairoments/trimming.yml"
+    "code/environments/trimming.yml"
   shell:
     """
     trim_galore {input} -o data/processed/
@@ -120,7 +120,7 @@ rule fastqc_trimmed:
   output:
     "results/fastqc/trimmed/{sample}_trimmed_fastqc.html"
   conda:
-    "code/envairoments/env.yml" 
+    "code/environments/rnaseq.yml" 
   shell:
     "fastqc {input} -o results/fastqc/trimmed"
 
@@ -134,7 +134,7 @@ rule mapping:
   params:
     strand = config["strandness"]
   conda:
-    "code/envairoments/env.yml" 
+    "code/environments/rnaseq.yml" 
   shell:
     """
     ## Indexamos el genoma
@@ -156,7 +156,7 @@ rule sam_to_bam:
   output:
     "results/mapped_reads/bam_files/{sample}_hisat2.bam",
   conda:
-    "code/envairoments/env.yml"
+    "code/environments/rnaseq.yml"
   shell:
     """
     ## Convertimos los archivos SAM a BAM 
@@ -170,7 +170,7 @@ rule sorting_bam:
   output:
     "results/mapped_reads/bam_files/{sample}_hisat2_sorted.bam",
   conda:
-    "code/envairoments/env.yml"
+    "code/environments/rnaseq.yml"
   shell:
     """
     ## Ordeamos los archivos
@@ -189,7 +189,7 @@ rule download_annotations:
   output:
     "data/annotations/genome.gtf"
   conda:
-    "code/envairoments/env.yml" 
+    "code/environments/rnaseq.yml" 
   shell:
     """
     bash {input}
@@ -199,7 +199,7 @@ rule pregunta7:
   output:
     "results/visualizar_datos/pregunta7/{sample}.txt"
   conda:
-    "code/envairoments/env.yml" 
+    "code/environments/rnaseq.yml" 
   shell:
     """
     ## Responder a las siguientes cuestiones:
@@ -230,7 +230,7 @@ rule counts:
   output:
     "results/tables/{sample}_counts.tsv"
   conda:
-    "code/envairoments/htseq.yml"
+    "code/environments/htseq.yml"
   shell:
     """
     htseq-count -f bam \
@@ -253,7 +253,7 @@ rule data_analysisR:
     dir2 = "results/data_analysis/plots/",
     dir3 = "results/data_analysis/tables/"
   conda:
-    "code/envairoments/data_analysisR.yml"
+    "code/environments/data_analysisR.yml"
   shell:
     """
     if [[ ! -d results/data_analysis/ ]]
